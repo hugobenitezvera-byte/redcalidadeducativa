@@ -60,7 +60,43 @@ No se pueden listar: el código no está en este repositorio. Para avanzar a la 
    y los archivos `settings.py` (sin secretos), `urls.py` raíz y los `models.py` de las apps que
    contienen alumnos, inscripciones, materias y estado de cuenta.
 
-## 4. Cambios mínimos necesarios (propuesta, a validar con el código real)
+## 4. Decisión: CRM externo alimentado con Excel (fase inicial)
+
+Acordado el 2026-10-12: en lugar de integrarse desde el principio al sistema académico, el CRM se
+construye como un **proyecto Django independiente**, con su propia base PostgreSQL, y toma los datos
+de alumnos de **archivos Excel exportados** del sistema académico. La integración directa queda para
+una etapa final.
+
+Ventajas: no se toca el sistema académico ni su base de producción; se puede empezar sin acceso al
+código; el riesgo de romper algo existente es nulo.
+
+Diseño:
+
+- **Proyecto `crm` separado**, con sus propios usuarios de Django para los 5 funcionarios (login,
+  grupos y permisos de Django). Más adelante se puede unificar con el login del sistema académico.
+- **Importador de Excel** (comando de gestión y, más adelante, pantalla de carga solo para
+  supervisores): lee los archivos, valida columnas y tipos, informa filas con error y guarda los
+  datos en tablas propias del CRM. Cada importación queda registrada con su **fecha de corte**,
+  quién la hizo y cuántas filas entraron.
+- **Mapeo de columnas configurable**: los nombres de columnas del Excel se definen en un archivo de
+  configuración, no en el código. Así, si cambia la exportación, no hay que reprogramar.
+- **Capa de fuente de datos intercambiable**: el menú y la IA solo llaman funciones como
+  `materias_cursando(alumno)` o `estado_de_cuenta(alumno)`. Hoy las resuelve la implementación
+  "Excel"; al integrar con el sistema real se cambia solo esa implementación, y el resto del CRM
+  queda igual.
+- **Solo lectura y datos mínimos**: se importan únicamente las columnas necesarias para las consultas
+  del MVP y para verificar identidad.
+
+Riesgos propios de este enfoque:
+
+| Riesgo | Mitigación |
+|---|---|
+| Datos desactualizados (sobre todo pagos hechos después de la exportación) | Cada respuesta indica "datos al <fecha de corte>". Si el alumno dice que ya pagó, se crea un ticket para tesorería; la IA nunca discute una deuda. Definir una frecuencia de exportación (ideal: diaria). |
+| Los Excel contienen datos personales y financieros | **Nunca** se suben al repositorio (es público; `.gitignore` bloquea `*.xlsx`, `*.xls`, `*.csv` y `datos/`). Se guardan en el servidor con acceso restringido y se borran tras importarlos. |
+| Formato de exportación inconsistente (columnas renombradas, fechas como texto, CI con puntos) | Validación estricta antes de reemplazar datos: si el archivo no pasa, se conserva la importación anterior. |
+| Identificación del alumno | Depende de qué columnas existan: lo ideal es CI + teléfono registrado (que coincida con el número de WhatsApp). Si no hay teléfono, CI + un segundo dato (p. ej. fecha de nacimiento). |
+
+## 4b. Cambios mínimos para la integración final (posterior, a validar con el código real)
 
 - **Una app Django nueva, `crm`, dentro del proyecto existente**, para reutilizar login, usuarios,
   permisos y plantillas. Sus tablas serán nuevas (prefijo `crm_`) y sus migraciones **solo aditivas**
@@ -94,11 +130,12 @@ Salida: Django → Cloud API (registra el mensaje; rechaza respuestas de la IA s
 | Etapa | Alcance | Criterio de "listo" |
 |---|---|---|
 | **1 (esta)** | WhatsApp Cloud API ↔ n8n: verificar el webhook, recibir un mensaje y responderlo. Firma, idempotencia básica, lista blanca de números de prueba. | Escribís al número de prueba y recibís la respuesta automática. Ver `docs/02-etapa1-whatsapp-n8n.md`. |
-| 2 | App `crm` en Django: Contacto, Conversación, Mensaje (id de WhatsApp único), endpoint de ingreso desde n8n, envío saliente centralizado, admin. Sin IA. | Todo mensaje entrante y saliente queda guardado una sola vez; Meta reintenta si Django no guardó. |
-| 3 | Menú MVP (inscripciones, materias, estado de cuenta, hablar con asesor) e identificación del alumno (CI + verificación adicional a definir). Funciones de solo lectura sobre los modelos reales. | Un alumno verificado consulta sus 3 datos; un no verificado no obtiene datos personales. |
+| 2 | Proyecto Django `crm` independiente con su base PostgreSQL: usuarios y roles, Contacto, Conversación, Mensaje (id de WhatsApp único), endpoint de ingreso desde n8n, envío saliente centralizado, admin. Sin IA. | Todo mensaje entrante y saliente queda guardado una sola vez; Meta reintenta si Django no guardó. |
+| 3 | Importador de Excel (mapeo configurable, validación, fecha de corte), menú MVP (inscripciones, materias, estado de cuenta, hablar con asesor) e identificación del alumno. | Un alumno verificado consulta sus 3 datos con la fecha de corte; un no verificado no obtiene datos personales. |
 | 4 | Tickets y bandeja humana: estados PENDIENTE / EN_ATENCION / CERRADA, motivo, prioridad, asignación atómica ("tomar"), respuesta por Cloud API, cierre con resultado, "devolver a la IA", roles y auditoría. | Dos funcionarios no pueden tomar el mismo chat; con chat asignado la IA no responde. |
 | 5 | Asistente IA (Claude u otro, configurable) con *tool use* limitado a las funciones controladas y a la base de respuestas generales del manual. Escala a ticket cuando no puede resolver. | La IA no inventa datos personales; ante duda, crea ticket. |
 | 6 | Dashboard, reportes, tiempos de atención, endurecimiento y salida a producción (token permanente, número definitivo, plantillas aprobadas). | Checklist de producción aprobado por vos. |
+| 7 | Integración con el sistema académico: reemplazar la fuente "Excel" por lectura directa (consultas de solo lectura o API), y opcionalmente unificar el login. | Mismas pruebas de la Etapa 3, ahora con datos en línea. |
 
 Propuesta de modelo para la Etapa 4 (a confirmar con vos): separar la **conversación** (hilo
 permanente con el contacto) de la **atención/ticket** (cada episodio con motivo, prioridad, estado,
@@ -112,7 +149,7 @@ o al cerrar.
 
 | Riesgo | Mitigación |
 |---|---|
-| No tengo el código del sistema académico | Bloquea la Etapa 3. La Etapa 1 no depende de él. |
+| No tengo el código del sistema académico | Ya no bloquea: las Etapas 1 a 6 usan Excel exportados. Solo la Etapa 7 lo necesita. |
 | **El repositorio es público** | Ningún secreto en el repo (`.gitignore`, `.env.example`). Además, el manual `index.html` tiene procedimientos internos y nombres de personas: conviene pasar el repo a **privado**. |
 | Número de WhatsApp ya conectado a otro proveedor (¿Tinkchat?) o a la app WhatsApp Business | Un número solo puede estar en un proveedor de API a la vez. Probar primero con el **número de prueba de Meta**; migrar el número real solo con un plan aprobado. |
 | Ventana de 24 h de WhatsApp | Fuera de las 24 h desde el último mensaje del alumno solo se pueden enviar **plantillas aprobadas**. Afecta respuestas tardías de funcionarios (Etapa 4). |
@@ -139,7 +176,11 @@ o al cerrar.
 
 ## 7. Lo que necesito de vos para seguir
 
-1. Acceso al código del sistema académico en Django (o la información de la sección 3).
-2. Dónde va a correr n8n (servidor propio con dominio HTTPS, VPS, etc.) y si ya existe una instancia.
-3. Qué número de WhatsApp se usará y si hoy está conectado a otro proveedor o a la app WhatsApp Business.
-4. Si el portafolio comercial (Business Manager) de Meta del instituto ya está verificado.
+1. Para la Etapa 3: la lista de Excel que pueden exportar (alumnos, inscripciones, materias
+   cursando, estado de cuenta) con **solo la fila de encabezados** de cada uno, o 2-3 filas con
+   datos **ficticios**. No compartir datos reales de alumnos por este medio.
+2. Si el Excel de alumnos trae teléfono y en qué formato, y cada cuánto pueden exportar.
+3. Dónde va a correr el CRM y n8n (servidor propio con dominio HTTPS, VPS, etc.).
+4. Qué número de WhatsApp se usará y si hoy está conectado a otro proveedor o a la app WhatsApp Business.
+5. Si el portafolio comercial (Business Manager) de Meta del instituto ya está verificado.
+6. Para la Etapa 7 (más adelante): acceso al código del sistema académico (ver sección 3).

@@ -10,3 +10,10 @@ __pycache__/
 
 # Datos locales de pruebas
 graph_calls.jsonl
+
+# Datos de alumnos exportados (datos personales: nunca al repositorio)
+*.xlsx
+*.xls
+*.xlsm
+*.csv
+datos/
