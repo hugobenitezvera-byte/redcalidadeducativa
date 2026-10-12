@@ -1,0 +1,22 @@
+# n8n para la Etapa 1 (pruebas / staging). NO apunta a la base del sistema académico.
+# Uso:  cp .env.example .env  &&  (completar .env)  &&  docker compose up -d
+services:
+  n8n:
+    image: n8nio/n8n:2.42.7   # versión fijada; actualizar a propósito, no con "latest"
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678" # solo local; exponer a Internet vía proxy HTTPS o túnel
+    env_file: .env
+    environment:
+      # Los nodos Code de este flujo leen $env y usan el módulo crypto (HMAC).
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      - NODE_FUNCTION_ALLOW_BUILTIN=crypto
+      - N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS=true
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - GENERIC_TIMEZONE=America/Asuncion
+      - TZ=America/Asuncion
+    volumes:
+      - n8n_data:/home/node/.n8n
+
+volumes:
+  n8n_data:

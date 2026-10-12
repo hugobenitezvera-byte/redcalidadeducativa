@@ -1,0 +1,12 @@
+# Secretos
+.env
+*.env
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Datos locales de pruebas
+graph_calls.jsonl

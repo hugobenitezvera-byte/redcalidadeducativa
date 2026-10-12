@@ -1,0 +1,358 @@
+{
+  "id": "crmEtapa1WhatsApp",
+  "name": "CRM Etapa 1 - WhatsApp Cloud API: recibir y responder (prueba)",
+  "active": false,
+  "nodes": [
+    {
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Webhook GET (verificación Meta)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "whatsapp",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "webhookId": "5e0f4a52-6a3c-4c8e-9a51-2f6c1b7d0a01"
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "Validar verify_token",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// Verificación de suscripción del webhook (GET de Meta).\n// Meta envía hub.mode=subscribe, hub.verify_token y hub.challenge.\n// Solo devolvemos el challenge si el token coincide con WHATSAPP_VERIFY_TOKEN.\nconst q = $input.first().json.query || {};\nconst expected = String($env.WHATSAPP_VERIFY_TOKEN || '');\nconst ok = expected.length > 0\n  && q['hub.mode'] === 'subscribe'\n  && String(q['hub.verify_token'] || '') === expected;\nreturn [{ json: { ok, challenge: ok ? String(q['hub.challenge'] || '') : '' } }];\n"
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "¿Token válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-ok",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Responder challenge",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        -100
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "options": {
+          "responseCode": 200
+        },
+        "responseBody": "={{ $json.challenge }}"
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000005",
+      "name": "Rechazar verificación (403)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        100
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "options": {
+          "responseCode": 403
+        },
+        "responseBody": "Forbidden"
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000011",
+      "name": "Webhook POST (mensajes Meta)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        400
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp",
+        "responseMode": "responseNode",
+        "options": {
+          "rawBody": true
+        }
+      },
+      "webhookId": "5e0f4a52-6a3c-4c8e-9a51-2f6c1b7d0a02"
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000012",
+      "name": "Validar firma X-Hub-Signature-256",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        400
+      ],
+      "parameters": {
+        "jsCode": "// Valida la cabecera X-Hub-Signature-256 que firma Meta:\n// HMAC-SHA256 del cuerpo CRUDO usando el App Secret de la app de Meta.\n// Requiere la opción \"Raw Body\" del Webhook y NODE_FUNCTION_ALLOW_BUILTIN=crypto.\nconst crypto = require('crypto');\n\nconst appSecret = String($env.WHATSAPP_APP_SECRET || '');\nconst item = $input.first();\nconst headers = item.json.headers || {};\nconst signature = String(headers['x-hub-signature-256'] || '');\n\nif (!appSecret) {\n  return [{ json: { valid: false, reason: 'WHATSAPP_APP_SECRET no configurado' } }];\n}\nif (!item.binary || !item.binary.data) {\n  return [{ json: { valid: false, reason: 'Sin cuerpo crudo: activar \"Raw Body\" en el Webhook' } }];\n}\n\nconst raw = await this.helpers.getBinaryDataBuffer(0, 'data');\nconst expected = 'sha256=' + crypto.createHmac('sha256', appSecret).update(raw).digest('hex');\nconst a = Buffer.from(signature);\nconst b = Buffer.from(expected);\nif (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {\n  return [{ json: { valid: false, reason: 'Firma ausente o inválida' } }];\n}\n\nlet body;\ntry {\n  body = JSON.parse(raw.toString('utf8'));\n} catch (e) {\n  return [{ json: { valid: false, reason: 'JSON inválido' } }];\n}\nreturn [{ json: { valid: true, body } }];\n"
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000013",
+      "name": "¿Firma válida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        400
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-valid",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000014",
+      "name": "Confirmar recepción (200)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        300
+      ],
+      "parameters": {
+        "respondWith": "noData",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000015",
+      "name": "Rechazar firma (401)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        500
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "options": {
+          "responseCode": 401
+        },
+        "responseBody": "Unauthorized"
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000016",
+      "name": "Extraer mensajes y deduplicar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        300
+      ],
+      "parameters": {
+        "jsCode": "// Extrae los mensajes entrantes del payload de Meta y prepara la respuesta de prueba.\n// - Ignora eventos de estado (sent/delivered/read): no son mensajes del alumno.\n// - Ignora otros números de la misma cuenta (WHATSAPP_PHONE_NUMBER_ID).\n// - Idempotencia: descarta message.id ya procesados (Meta reintenta entregas).\n// - Lista blanca de prueba: solo responde a WA_TEST_ALLOWED_NUMBERS.\nconst phoneNumberId = String($env.WHATSAPP_PHONE_NUMBER_ID || '');\nconst allowed = String($env.WA_TEST_ALLOWED_NUMBERS || '')\n  .split(',')\n  .map((n) => n.replace(/\\D/g, ''))\n  .filter(Boolean);\n\nconst body = $input.first().json.body || {};\nif (!phoneNumberId || body.object !== 'whatsapp_business_account') {\n  return [];\n}\n\n// Los datos estáticos solo persisten en ejecuciones de producción (flujo activo),\n// no en \"Execute workflow\" manual.\nconst staticData = $getWorkflowStaticData('global');\nconst seen = Array.isArray(staticData.seenMessageIds) ? staticData.seenMessageIds : [];\n\nconst out = [];\nfor (const entry of body.entry || []) {\n  for (const change of entry.changes || []) {\n    if (change.field !== 'messages') continue;\n    const value = change.value || {};\n    if (!value.metadata || value.metadata.phone_number_id !== phoneNumberId) continue;\n\n    const names = {};\n    for (const c of value.contacts || []) {\n      names[c.wa_id] = (c.profile && c.profile.name) || '';\n    }\n\n    for (const m of value.messages || []) {\n      if (!m.id || seen.includes(m.id)) continue;\n      seen.push(m.id);\n\n      const from = String(m.from || '').replace(/\\D/g, '');\n      if (!allowed.includes(from)) continue;\n\n      const text = m.type === 'text' && m.text ? String(m.text.body || '') : null;\n      const reply = text !== null\n        ? `Recibido: \"${text.slice(0, 300)}\"\\n\\nPrueba de conexión WhatsApp - n8n OK.`\n        : `Recibí un mensaje de tipo \"${m.type}\". En esta etapa de prueba solo respondo mensajes de texto.`;\n\n      out.push({\n        json: {\n          message_id: m.id,\n          from,\n          name: names[m.from] || '',\n          type: m.type,\n          text,\n          timestamp: m.timestamp,\n          phone_number_id: value.metadata.phone_number_id,\n          reply,\n        },\n      });\n    }\n  }\n}\n\nstaticData.seenMessageIds = seen.slice(-1000);\nreturn out;\n"
+      }
+    },
+    {
+      "id": "a1000000-0000-4000-8000-000000000017",
+      "name": "Enviar respuesta (WhatsApp Cloud API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1100,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.WHATSAPP_GRAPH_BASE_URL || 'https://graph.facebook.com' }}/{{ $env.WHATSAPP_GRAPH_VERSION }}/{{ $env.WHATSAPP_PHONE_NUMBER_ID }}/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: $json.from, type: 'text', text: { preview_url: false, body: $json.reply } }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "WA_CLOUD_API_TOKEN",
+          "name": "WhatsApp Cloud API token"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook GET (verificación Meta)": {
+      "main": [
+        [
+          {
+            "node": "Validar verify_token",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar verify_token": {
+      "main": [
+        [
+          {
+            "node": "¿Token válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Token válido?": {
+      "main": [
+        [
+          {
+            "node": "Responder challenge",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazar verificación (403)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook POST (mensajes Meta)": {
+      "main": [
+        [
+          {
+            "node": "Validar firma X-Hub-Signature-256",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar firma X-Hub-Signature-256": {
+      "main": [
+        [
+          {
+            "node": "¿Firma válida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Firma válida?": {
+      "main": [
+        [
+          {
+            "node": "Confirmar recepción (200)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rechazar firma (401)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmar recepción (200)": {
+      "main": [
+        [
+          {
+            "node": "Extraer mensajes y deduplicar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extraer mensajes y deduplicar": {
+      "main": [
+        [
+          {
+            "node": "Enviar respuesta (WhatsApp Cloud API)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "pinData": {}
+}
