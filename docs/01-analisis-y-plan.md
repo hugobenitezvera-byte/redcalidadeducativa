@@ -64,7 +64,7 @@ No se pueden listar: el código no está en este repositorio. Para avanzar a la 
 
 Acordado el 2026-10-12: en lugar de integrarse desde el principio al sistema académico, el CRM se
 construye como un **proyecto Django independiente**, con su propia base PostgreSQL, y toma los datos
-de alumnos de **archivos Excel exportados** del sistema académico. La integración directa queda para
+de alumnos de **archivos archivos exportados (CSV)** del sistema académico. La integración directa queda para
 una etapa final.
 
 Ventajas: no se toca el sistema académico ni su base de producción; se puede empezar sin acceso al
@@ -176,10 +176,10 @@ o al cerrar.
 
 ## 7. Lo que necesito de vos para seguir
 
-1. Para la Etapa 3: la lista de Excel que pueden exportar (alumnos, inscripciones, materias
-   cursando, estado de cuenta) con **solo la fila de encabezados** de cada uno, o 2-3 filas con
-   datos **ficticios**. No compartir datos reales de alumnos por este medio.
-2. Si el Excel de alumnos trae teléfono y en qué formato, y cada cuánto pueden exportar.
+1. Para la Etapa 3: **solo la fila de encabezados** de los CSV de carreras/aranceles, alumnos y
+   materias por alumno, y si pueden exportar el estado de cuenta por alumno
+   (ver `docs/03-datos-csv.md`). No compartir datos reales de alumnos por este medio.
+2. Cada cuánto pueden exportar los CSV.
 3. Dónde va a correr el CRM y n8n (servidor propio con dominio HTTPS, VPS, etc.).
 4. Qué número de WhatsApp se usará y si hoy está conectado a otro proveedor o a la app WhatsApp Business.
 5. Si el portafolio comercial (Business Manager) de Meta del instituto ya está verificado.

@@ -1,0 +1,3 @@
+ci;nombres;apellidos;telefono;correo;codigo_carrera;sede;modalidad;semestre;estado
+1111111;Ana;Ejemplo;0981000000;ana.ejemplo@example.com;CAR-001;Sede Ejemplo 1;PRESENCIAL;3;ACTIVO
+2222222;Luis;Prueba;+595 991 000000;luis.prueba@example.com;CAR-002;Sede Ejemplo 1;PRESENCIAL;1;INACTIVO
