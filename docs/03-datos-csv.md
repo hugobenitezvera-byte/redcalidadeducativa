@@ -11,7 +11,10 @@ personal se copia al repositorio.
 | Formato | CSV exportado de PostgreSQL: separador coma, comillas dobles, UTF-8, nulos como `NULL`, booleanos `True`/`False`. |
 | Frecuencia | **Una vez por mes.** Cada importación guarda su fecha de corte, y el bot la informa. |
 | Estado de cuenta | El bot **no** muestra saldos. Si el alumno solo quiere consultarlo, el bot le indica el portal `app.redcalidadeducativa.edu.py`. Si tiene un reclamo o un problema (pago no reflejado, error en la cuota, etc.), crea un **ticket para el área de Cobranzas**. |
-| Inscripciones | Carreras disponibles y aranceles, desde `aranceles.csv` + catálogos (ver pendientes). Información general, sin verificar identidad. |
+| Inscripciones | Carreras disponibles y aranceles, desde `aranceles.csv` + catálogos con nombres (los envía el instituto). Información general, sin verificar identidad. Si la persona quiere inscribirse, se crea un **ticket para el área de Admisión** con su nombre, teléfono y la carrera de interés. |
+| `alumno.csv` | Se usa solo para tener la CI y los datos de contacto del alumno (identificación). |
+| `activo` | `False` significa que el alumno está **inactivo o tiene alguna deuda** (ver abajo cómo lo usa el bot). |
+| Nivel de inscripción distinto del nivel del curso | Es **normal**: hay materias comunes entre niveles. El importador no lo marca como error. |
 | Materias cursando | Desde `cursos.csv`, con el alumno verificado. |
 
 ## Estructura real de cada archivo
@@ -35,7 +38,7 @@ Estadísticas del archivo recibido:
 | Período | solo 2026, todos los cursos activos |
 | Filas duplicadas exactas | **279**: el importador las descarta |
 | `dia_clase` | vacío en todas las filas: el bot no puede informar días de clase |
-| `nivel_inscripcion` distinto de `nivel_curso` | 3.711 filas: a confirmar si es normal (p. ej. materias de otro nivel) |
+| `nivel_inscripcion` distinto de `nivel_curso` | 3.711 filas: normal, son materias comunes entre niveles |
 
 Lo que el bot podrá responder con este archivo: materias que cursa, carrera, sede, modalidad, turno,
 docente, horario (`hora_inicio`-`hora_fin`) y fechas de inicio y fin de cada materia.
@@ -66,8 +69,8 @@ Observaciones de la muestra:
   correo.
 - Teléfonos en formatos mixtos: fijos de 6 dígitos sin prefijo, celulares con espacios y vacíos.
   Los correos estaban vacíos en las 10 filas.
-- El único alumno de la muestra que tiene materias en `cursos.csv` figura con `activo = False`.
-  **A confirmar** qué significa `activo` (¿acceso a la plataforma?, ¿matriculado?).
+- `activo = False` significa alumno inactivo **o con deuda** (confirmado). Por eso un alumno puede
+  tener materias en `cursos.csv` y figurar inactivo.
 
 ### `aranceles.csv`: aranceles (muestra de 10 filas)
 
@@ -95,19 +98,26 @@ cuenta va al portal o a Cobranzas. Propuesta:
 
 El bot nunca confirma si una CI existe. Después de 3 intentos fallidos, deriva a un humano.
 
+## Uso de `activo` en el bot
+
+- Un alumno inactivo **puede** verificarse y consultar sus materias: `activo` no bloquea la atención.
+- El bot **no** dice "tiene deuda": `activo = False` no distingue entre deuda e inactividad, y el
+  dato puede tener hasta un mes de antigüedad.
+- Si el alumno inactivo consulta por acceso a la plataforma (caso "Habilitar plataforma" del manual
+  de atención), el bot responde que su usuario figura inactivo, le indica revisar su estado de
+  cuenta en el portal y crea un **ticket para Cobranzas** para que lo revisen y lo activen si
+  corresponde.
+
 ## Pendientes para el próximo paso
 
 1. **Catálogos con nombres** para los IDs de `aranceles.csv`, como CSV `id,nombre` de: carreras,
-   conceptos, centros, modalidades, tipos de sede (y sedes y turnos, si se usan). Alcanza con
-   exportar esas tablas con sus dos primeras columnas.
-2. Ejecutar el diagnóstico sobre el **`alumno.csv` completo** (o solo de alumnos con inscripción
-   2026) y pasarme **solo la salida**, que no tiene datos personales:
+   conceptos, centros, modalidades, tipos de sede (y sedes y turnos, si se usan).
+2. Opcional, pero recomendado: ejecutar el diagnóstico sobre el **`alumno.csv` completo** y pasar
+   **solo la salida** (son cantidades, sin datos personales). Muestra cuántos alumnos tienen celular
+   cargado, y con eso se sabe cuántos podrán verificarse automáticamente:
    ```bash
    python3 scripts/diagnostico_csv.py --alumnos alumno.csv --cursos cursos.csv --aranceles aranceles.csv
    ```
-   Con eso decidimos si la verificación por celular es viable o si hay que actualizar teléfonos.
-3. Qué significa `activo` en `alumno.csv`.
-4. Si `nivel_inscripcion` distinto de `nivel_curso` es normal.
 
 ## Datos de prueba
 
