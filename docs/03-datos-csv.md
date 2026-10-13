@@ -50,7 +50,7 @@ Moodle. **El CRM importará solo estas**:
 
 | Columna | Uso |
 |---|---|
-| `codigo_alumno` | Clave para unir con `cursos.csv`. **A confirmar: ¿es el número de CI?** (en la muestra coincide con `ruc` en 9 de 10 filas). |
+| `codigo_alumno` | **Es el número de CI** (confirmado el 2026-10-13). Clave para unir con `cursos.csv` y dato de verificación. Se normaliza quitando puntos y espacios. |
 | `apellido`, `nombre` | Saludo y ficha del alumno. |
 | `fecha_nacimiento` | Segundo dato de verificación. |
 | `telefono`, `telefono2`, `contacto_particular` | Comparar con el número de WhatsApp. |
@@ -87,7 +87,7 @@ tipo_sede_id`.
 En el MVP, el único dato personal que muestra el bot son las **materias y horarios**. El estado de
 cuenta va al portal o a Cobranzas. Propuesta:
 
-1. **Celular registrado = número de WhatsApp** + `codigo_alumno`/CI correcto → verificado.
+1. **Celular registrado = número de WhatsApp** + CI (`codigo_alumno`) correcta → verificado.
 2. Si el celular no coincide o no está cargado: CI + **fecha de nacimiento** → verificado solo para
    consultar materias.
 3. Si tampoco coincide → ticket "verificación de identidad" para un funcionario.
@@ -97,18 +97,17 @@ El bot nunca confirma si una CI existe. Después de 3 intentos fallidos, deriva 
 
 ## Pendientes para el próximo paso
 
-1. **¿`codigo_alumno` es la CI?** Si no lo es, ¿qué columna tiene la CI?
-2. **Catálogos con nombres** para los IDs de `aranceles.csv`, como CSV `id,nombre` de: carreras,
+1. **Catálogos con nombres** para los IDs de `aranceles.csv`, como CSV `id,nombre` de: carreras,
    conceptos, centros, modalidades, tipos de sede (y sedes y turnos, si se usan). Alcanza con
    exportar esas tablas con sus dos primeras columnas.
-3. Ejecutar el diagnóstico sobre el **`alumno.csv` completo** (o solo de alumnos con inscripción
+2. Ejecutar el diagnóstico sobre el **`alumno.csv` completo** (o solo de alumnos con inscripción
    2026) y pasarme **solo la salida**, que no tiene datos personales:
    ```bash
    python3 scripts/diagnostico_csv.py --alumnos alumno.csv --cursos cursos.csv --aranceles aranceles.csv
    ```
    Con eso decidimos si la verificación por celular es viable o si hay que actualizar teléfonos.
-4. Qué significa `activo` en `alumno.csv`.
-5. Si `nivel_inscripcion` distinto de `nivel_curso` es normal.
+3. Qué significa `activo` en `alumno.csv`.
+4. Si `nivel_inscripcion` distinto de `nivel_curso` es normal.
 
 ## Datos de prueba
 

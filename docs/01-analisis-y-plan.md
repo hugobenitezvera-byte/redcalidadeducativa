@@ -176,7 +176,7 @@ o al cerrar.
 
 ## 7. Lo que necesito de vos para seguir
 
-1. Para la Etapa 3: los pendientes de `docs/03-datos-csv.md` (CI, catálogos con nombres para
+1. Para la Etapa 3: los pendientes de `docs/03-datos-csv.md` (catálogos con nombres para
    los aranceles, salida del diagnóstico sobre el `alumno.csv` completo).
 2. Frecuencia de exportación: confirmada, una vez por mes.
 3. Dónde va a correr el CRM y n8n (servidor propio con dominio HTTPS, VPS, etc.).
