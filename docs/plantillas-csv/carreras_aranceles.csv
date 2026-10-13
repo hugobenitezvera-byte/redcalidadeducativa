@@ -1,5 +1,0 @@
-codigo_carrera;carrera;nivel;sede;modalidad;concepto;monto_gs;vigente_desde
-CAR-001;Carrera de ejemplo A;GRADO;Sede Ejemplo 1;PRESENCIAL;MATRICULA;100000;2026-01-01
-CAR-001;Carrera de ejemplo A;GRADO;Sede Ejemplo 1;PRESENCIAL;CUOTA;200000;2026-01-01
-CAR-001;Carrera de ejemplo A;GRADO;Sede Ejemplo 2;VIRTUAL;CUOTA;180000;2026-01-01
-CAR-002;Carrera de ejemplo B;PREGRADO;Sede Ejemplo 1;PRESENCIAL;DERECHO_EXAMEN;50000;2026-01-01

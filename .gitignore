@@ -17,5 +17,5 @@ graph_calls.jsonl
 *.xlsm
 *.csv
 datos/
-# Excepción: plantillas con datos FICTICIOS
-!docs/plantillas-csv/*.csv
+# Excepción: datos FICTICIOS para pruebas
+!tests/datos_ficticios/*.csv

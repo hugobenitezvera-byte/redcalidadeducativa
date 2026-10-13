@@ -1,68 +1,124 @@
-# Fuente de datos inicial: archivos CSV exportados
+# Fuente de datos inicial: CSV exportados del sistema académico
 
-Fecha: 2026-10-13. Define qué datos entran al CRM mientras no esté integrado con el sistema
-académico (ver sección 4 de `01-analisis-y-plan.md`).
+Actualizado: 2026-10-13, con las tres exportaciones reales que recibí (`alumno.csv`, `cursos.csv`,
+`aranceles.csv`). Aquí solo se documenta su **estructura** y estadísticas agregadas: ningún dato
+personal se copia al repositorio.
 
-## Datos confirmados
+## Decisiones confirmadas
 
-| Archivo | Contenido confirmado | Uso en el CRM | ¿Requiere verificar identidad? |
-|---|---|---|---|
-| Carreras y aranceles | Todas las carreras con sus aranceles | Opción **Inscripciones** del menú: carreras disponibles y costos. Sirve también para postulantes. | **No**: es información general. |
-| Alumnos | Incluye **teléfono** y **correo** | Identificar al alumno que escribe y verificar su identidad. | Es la base de la verificación. |
-| Materias por alumno | Qué materias lleva cada alumno | Opción **Materias cursando**. | **Sí**. |
+| Tema | Decisión |
+|---|---|
+| Formato | CSV exportado de PostgreSQL: separador coma, comillas dobles, UTF-8, nulos como `NULL`, booleanos `True`/`False`. |
+| Frecuencia | **Una vez por mes.** Cada importación guarda su fecha de corte, y el bot la informa. |
+| Estado de cuenta | El bot **no** muestra saldos. Si el alumno solo quiere consultarlo, el bot le indica el portal `app.redcalidadeducativa.edu.py`. Si tiene un reclamo o un problema (pago no reflejado, error en la cuota, etc.), crea un **ticket para el área de Cobranzas**. |
+| Inscripciones | Carreras disponibles y aranceles, desde `aranceles.csv` + catálogos (ver pendientes). Información general, sin verificar identidad. |
+| Materias cursando | Desde `cursos.csv`, con el alumno verificado. |
 
-Formato: **CSV**.
+## Estructura real de cada archivo
 
-## Pendiente: estado de cuenta
+### `cursos.csv`: materias por alumno (exportación completa)
 
-Las exportaciones confirmadas traen los aranceles **por carrera**, pero no la **deuda ni los pagos
-de cada alumno**. Sin ese dato, la opción **Estado de cuenta** del menú no puede responder de forma
-automática. Opciones:
+Columnas: `codigo_alumno, apellido, nombre, inscripcion_id, periodo_alumno, nivel_inscripcion,
+numero_curso, periodo_curso, curso_activo, seccion, materia_id, materia, dia_clase, profesor_id,
+docente, carrera, centro, sede, modalidad, turno, nivel_curso, hora_inicio, hora_fin, fecha_inicio,
+fecha_fin`.
 
-1. Exportar además un CSV de estado de cuenta por alumno (cuotas vencidas, montos, pagos), **o**
-2. En el MVP, que "Estado de cuenta" cree directamente un ticket para tesorería con el alumno ya
-   identificado. Es seguro y no requiere más datos.
+Estadísticas del archivo recibido:
 
-Si no hay respuesta, se toma la opción 2.
+| Dato | Valor |
+|---|---|
+| Filas | 21.975 |
+| Alumnos distintos | 3.002 |
+| Inscripciones distintas | 3.089 (76 alumnos tienen más de una) |
+| Carreras / materias distintas | 54 / 376 |
+| Centros | ITS, ISICS, CPS, IFD (16 sedes) |
+| Período | solo 2026, todos los cursos activos |
+| Filas duplicadas exactas | **279**: el importador las descarta |
+| `dia_clase` | vacío en todas las filas: el bot no puede informar días de clase |
+| `nivel_inscripcion` distinto de `nivel_curso` | 3.711 filas: a confirmar si es normal (p. ej. materias de otro nivel) |
 
-## Verificación de identidad propuesta
+Lo que el bot podrá responder con este archivo: materias que cursa, carrera, sede, modalidad, turno,
+docente, horario (`hora_inicio`-`hora_fin`) y fechas de inicio y fin de cada materia.
 
-Como el CSV de alumnos trae teléfono y correo:
+Este archivo trae carrera, sede, modalidad y turno **con nombre, pero sin sus IDs**. Por eso no
+sirve para traducir los IDs de `aranceles.csv`: hacen falta los catálogos (ver pendientes).
 
-1. El número de WhatsApp que escribe se compara con el **teléfono registrado** (normalizado:
-   `0981 000 000` y `+595 981 000000` se comparan como `595981000000`).
-2. Coincide → se pide además la **CI**. Si la CI corresponde a ese teléfono, el alumno queda
-   verificado por un tiempo limitado (p. ej. 30 minutos de conversación).
-3. No coincide (cambió de número, escribe un familiar) → se pide la CI y se envía un **código de un
-   solo uso al correo registrado**. El alumno lo escribe en WhatsApp para verificarse.
-4. Nunca se muestran datos personales sin verificación, ni se confirma si una CI existe.
+### `alumno.csv`: datos del alumno (muestra de 10 filas)
 
-## Formato de los CSV
+Tiene 94 columnas, incluidos datos de padres, encargados, dirección, RUC y sincronización con
+Moodle. **El CRM importará solo estas**:
 
-Lo ideal es usar los **encabezados reales** de su exportación: el importador los traduce mediante un
-archivo de configuración, sin cambiar código. Para eso necesito **solo la primera fila (encabezados)**
-de cada CSV.
+| Columna | Uso |
+|---|---|
+| `codigo_alumno` | Clave para unir con `cursos.csv`. **A confirmar: ¿es el número de CI?** (en la muestra coincide con `ruc` en 9 de 10 filas). |
+| `apellido`, `nombre` | Saludo y ficha del alumno. |
+| `fecha_nacimiento` | Segundo dato de verificación. |
+| `telefono`, `telefono2`, `contacto_particular` | Comparar con el número de WhatsApp. |
+| `email` | Envío de código de verificación. |
+| `activo`, `fechaInactivo` | Estado del alumno. |
 
-Si al exportar pueden elegir columnas, en `docs/plantillas-csv/` hay plantillas con datos
-**ficticios** con el formato que propongo para el CRM:
+El resto de las columnas (padres, encargados, direcciones, RUC, Moodle) **no se importa**: el CRM
+no las necesita, y no guardarlas reduce el riesgo.
 
-- `carreras_aranceles.csv`: una fila por carrera, sede, modalidad y concepto. Va por sede porque el
-  manual de atención indica que cada centro tiene su arancel.
-- `alumnos.csv`: CI, nombres, teléfono, correo, carrera, sede, modalidad, semestre y estado.
-- `materias_alumno.csv`: una fila por alumno, período y materia.
+Observaciones de la muestra:
+- Son los registros **más antiguos** (códigos de 1–2 dígitos, 8 de 10 inactivos) y solo 1 de los 10
+  aparece en `cursos.csv`, así que **no sirve para medir** cuántos alumnos actuales tienen celular o
+  correo.
+- Teléfonos en formatos mixtos: fijos de 6 dígitos sin prefijo, celulares con espacios y vacíos.
+  Los correos estaban vacíos en las 10 filas.
+- El único alumno de la muestra que tiene materias en `cursos.csv` figura con `activo = False`.
+  **A confirmar** qué significa `activo` (¿acceso a la plataforma?, ¿matriculado?).
 
-Estos nombres de columnas son la propuesta del CRM, **no** los del sistema académico.
+### `aranceles.csv`: aranceles (muestra de 10 filas)
 
-El importador va a manejar:
-- Separador `;` o `,` (Excel en español suele exportar con `;`).
-- Codificación UTF-8 o Windows-1252.
-- CI con o sin puntos, y teléfonos en distintos formatos.
-- Validación previa: si el archivo tiene errores, se informa la fila y **no** se reemplazan los datos
-  vigentes.
+Columnas: `id, periodo, monto, nivel, moneda, activo, creado_el, modificado_el, carrera_id,
+centro_id, concepto_id, creado_por_id, modalidad_id, modificado_por_id, sede_id, turno_id,
+tipo_sede_id`.
+
+- Carrera, centro, concepto, modalidad, sede, turno y tipo de sede vienen **solo como IDs**. Para
+  que el bot diga "Técnico Superior en Farmacia, cuota: Gs. 200.000" hacen falta los **nombres**.
+- `sede_id` y `turno_id` están vacíos en la muestra: el arancel parece depender de
+  carrera + centro + modalidad + tipo de sede.
+- Hay un monto de `2.00` (id 14115), probablemente un registro de prueba: el importador marcará como
+  sospechoso cualquier monto menor a Gs. 1.000.
+
+## Verificación de identidad (propuesta, a confirmar)
+
+En el MVP, el único dato personal que muestra el bot son las **materias y horarios**. El estado de
+cuenta va al portal o a Cobranzas. Propuesta:
+
+1. **Celular registrado = número de WhatsApp** + `codigo_alumno`/CI correcto → verificado.
+2. Si el celular no coincide o no está cargado: CI + **fecha de nacimiento** → verificado solo para
+   consultar materias.
+3. Si tampoco coincide → ticket "verificación de identidad" para un funcionario.
+4. El código por correo queda como opción futura, solo si la cobertura de correos es buena.
+
+El bot nunca confirma si una CI existe. Después de 3 intentos fallidos, deriva a un humano.
+
+## Pendientes para el próximo paso
+
+1. **¿`codigo_alumno` es la CI?** Si no lo es, ¿qué columna tiene la CI?
+2. **Catálogos con nombres** para los IDs de `aranceles.csv`, como CSV `id,nombre` de: carreras,
+   conceptos, centros, modalidades, tipos de sede (y sedes y turnos, si se usan). Alcanza con
+   exportar esas tablas con sus dos primeras columnas.
+3. Ejecutar el diagnóstico sobre el **`alumno.csv` completo** (o solo de alumnos con inscripción
+   2026) y pasarme **solo la salida**, que no tiene datos personales:
+   ```bash
+   python3 scripts/diagnostico_csv.py --alumnos alumno.csv --cursos cursos.csv --aranceles aranceles.csv
+   ```
+   Con eso decidimos si la verificación por celular es viable o si hay que actualizar teléfonos.
+4. Qué significa `activo` en `alumno.csv`.
+5. Si `nivel_inscripcion` distinto de `nivel_curso` es normal.
+
+## Datos de prueba
+
+`tests/datos_ficticios/` tiene los tres CSV con los **mismos encabezados reales** y datos inventados
+(incluye a propósito una fila duplicada y un monto de prueba), para desarrollar y probar el
+importador sin usar datos reales.
 
 ## Manejo de los archivos reales
 
-- No se suben al repositorio (el `.gitignore` los bloquea). No compartirlos por chat ni por correo
-  sin cifrar.
-- Se cargan en el servidor del CRM, se importan y se borran.
-- Cada importación registra la fecha de corte; el bot la informa ("datos al 13/10/2026").
+- No se suben al repositorio: el `.gitignore` bloquea `*.csv`, salvo los ficticios.
+- La exportación de `alumno.csv` incluye datos de padres y encargados que el CRM no usa. Si es
+  posible, conviene exportar **solo las columnas listadas arriba**.
+- En el servidor del CRM: carpeta con acceso restringido, importar y borrar.

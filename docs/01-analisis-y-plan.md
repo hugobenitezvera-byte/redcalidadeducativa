@@ -176,10 +176,9 @@ o al cerrar.
 
 ## 7. Lo que necesito de vos para seguir
 
-1. Para la Etapa 3: **solo la fila de encabezados** de los CSV de carreras/aranceles, alumnos y
-   materias por alumno, y si pueden exportar el estado de cuenta por alumno
-   (ver `docs/03-datos-csv.md`). No compartir datos reales de alumnos por este medio.
-2. Cada cuánto pueden exportar los CSV.
+1. Para la Etapa 3: los pendientes de `docs/03-datos-csv.md` (CI, catálogos con nombres para
+   los aranceles, salida del diagnóstico sobre el `alumno.csv` completo).
+2. Frecuencia de exportación: confirmada, una vez por mes.
 3. Dónde va a correr el CRM y n8n (servidor propio con dominio HTTPS, VPS, etc.).
 4. Qué número de WhatsApp se usará y si hoy está conectado a otro proveedor o a la app WhatsApp Business.
 5. Si el portafolio comercial (Business Manager) de Meta del instituto ya está verificado.

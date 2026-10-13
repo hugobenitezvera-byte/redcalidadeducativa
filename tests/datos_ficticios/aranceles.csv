@@ -1,0 +1,4 @@
+"id","periodo","monto","nivel","moneda","activo","creado_el","modificado_el","carrera_id","centro_id","concepto_id","creado_por_id","modalidad_id","modificado_por_id","sede_id","turno_id","tipo_sede_id"
+"1","2026","100000.00","1","PYG","True","2026-01-01 00:00:00+00","NULL","1","1","1","NULL","1","NULL","NULL","NULL","1"
+"2","2026","200000.00","1","PYG","True","2026-01-01 00:00:00+00","NULL","1","1","2","NULL","1","NULL","NULL","NULL","1"
+"3","2026","2.00","1","PYG","True","2026-01-01 00:00:00+00","NULL","2","1","1","NULL","1","NULL","NULL","NULL","1"
